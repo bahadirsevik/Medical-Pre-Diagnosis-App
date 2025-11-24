@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: medical_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend:/app
+
+  tunnel:
+    image: cloudflare/cloudflared
+    container_name: medical_tunnel
+    restart: always
+    command: tunnel --url http://backend:8000
+    depends_on:
+      - backend
