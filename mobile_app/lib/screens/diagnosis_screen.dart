@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:animate_do/animate_do.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:syncfusion_flutter_gauges/gauges.dart';
 import '../services/api_service.dart';
 import '../services/audio_service.dart';
+import 'home/profile_screen.dart';
+import 'home/history_screen.dart';
+import '../widgets/diagnosis_result_card.dart';
 
 class DiagnosisScreen extends StatefulWidget {
   const DiagnosisScreen({super.key});
@@ -23,7 +28,6 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize speech engine
     _audioService.initSpeech();
   }
 
@@ -38,13 +42,14 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
           _textController.text = text;
         });
       });
-      // Auto-stop after some time or silence could be implemented here
-      // For now, user taps again to stop or we rely on manual stop
     }
   }
 
   void _analyze() async {
     if (_textController.text.isEmpty) return;
+
+    // Hide keyboard
+    FocusScope.of(context).unfocus();
 
     setState(() {
       _isLoading = true;
@@ -58,7 +63,6 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
         _isLoading = false;
       });
       
-      // Speak the result
       if (data['predictions'] != null && data['predictions'].isNotEmpty) {
         String disease = data['predictions'][0]['disease'];
         String prob = data['predictions'][0]['probability_str'];
@@ -69,29 +73,70 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
       setState(() {
         _isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Hata: $e')),
-      );
+      
+      if (e.toString().contains('UNAUTHORIZED')) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Oturum süresi doldu. Lütfen tekrar giriş yapın.')),
+        );
+        // Navigate to login or logout
+        // Ideally call UserProvider.logout but we need context access
+        // For now, just show message. The user will manually logout.
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Hata: $e')),
+        );
+      }
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Hastalık Ön Tanı'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {},
-          )
-        ],
       ),
-      body: Padding(
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            const DrawerHeader(
+              decoration: BoxDecoration(color: Color(0xFF009688)),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.health_and_safety, size: 60, color: Colors.white),
+                  SizedBox(height: 10),
+                  Text('Medical AI', style: TextStyle(color: Colors.white, fontSize: 24)),
+                ],
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person),
+              title: const Text('Profilim'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfileScreen()));
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history),
+              title: const Text('Geçmiş Analizler'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const HistoryScreen()));
+              },
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ... input fields
             FadeInDown(
               child: Container(
                 padding: const EdgeInsets.all(20),
@@ -146,41 +191,7 @@ class _DiagnosisScreenState extends State<DiagnosisScreen> {
                 : const Text("ANALİZ ET", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
             const SizedBox(height: 30),
-            if (_result != null) ...[
-              const Text("Sonuçlar", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: (_result!['predictions'] as List).length,
-                  itemBuilder: (context, index) {
-                    final item = _result!['predictions'][index];
-                    return FadeInUp(
-                      delay: Duration(milliseconds: index * 100),
-                      child: Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 10),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        child: ListTile(
-                          leading: CircleAvatar(
-                            backgroundColor: index == 0 ? Colors.redAccent : Colors.blueAccent,
-                            child: Text("${index + 1}", style: const TextStyle(color: Colors.white)),
-                          ),
-                          title: Text(item['disease'], style: const TextStyle(fontWeight: FontWeight.bold)),
-                          trailing: Text(
-                            item['probability_str'],
-                            style: TextStyle(
-                              color: index == 0 ? Colors.red : Colors.black,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              )
-            ]
+            if (_result != null) DiagnosisResultCard(result: _result!),
           ],
         ),
       ),

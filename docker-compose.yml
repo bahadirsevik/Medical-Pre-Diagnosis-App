@@ -9,8 +9,25 @@ services:
       - "8000:8000"
     env_file:
       - ./backend/.env
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/medical_db
     volumes:
       - ./backend:/app
+
+  db:
+    image: postgres:15
+    container_name: medical_db
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: medical_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5435:5432"
 
   tunnel:
     image: cloudflare/cloudflared
@@ -19,3 +36,6 @@ services:
     command: tunnel --url http://backend:8000
     depends_on:
       - backend
+
+volumes:
+  postgres_data:

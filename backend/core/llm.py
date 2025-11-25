@@ -85,3 +85,34 @@ def translate_diseases(diseases: List[str]) -> List[str]:
     except Exception as e:
         print(f"❌ Error in LLM translation: {e}")
         return diseases # Fallback to original on error
+
+def generate_advice(disease: str, symptoms: str) -> dict:
+    system_prompt = """
+    Sen uzman bir doktorsun. Hastanın semptomlarına ve olası teşhise göre kısa bir açıklama ve evde uygulanabilecek tavsiyeler ver.
+    Yanıtın JSON formatında olmalı ve şu anahtarları içermeli:
+    {
+        "reasoning": "Neden bu teşhis konulduğuna dair 1-2 cümlelik açıklama.",
+        "advice": "Evde yapılabilecek 3-4 maddelik basit tavsiyeler."
+    }
+    Yanıtın Türkçe olsun.
+    """
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Teşhis: {disease}\nSemptomlar: {symptoms}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.7
+        )
+        
+        content = response.choices[0].message.content
+        return json.loads(content)
+    except Exception as e:
+        print(f"❌ Error in LLM advice generation: {e}")
+        return {
+            "reasoning": "Detaylı analiz oluşturulamadı.",
+            "advice": "Lütfen bir sağlık kuruluşuna başvurun."
+        }

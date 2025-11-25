@@ -1,41 +1,78 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'screens/diagnosis_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:mobile_app/providers/user_provider.dart';
+import 'package:mobile_app/screens/diagnosis_screen.dart';
+import 'package:mobile_app/screens/auth/login_screen.dart';
+import 'package:mobile_app/screens/onboarding_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  final showHome = prefs.getBool('showHome') ?? false;
+
+  runApp(MyApp(showHome: showHome));
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final bool showHome;
+
+  const MyApp({super.key, required this.showHome});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Medical AI',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF009688), // Medical Teal
-          secondary: const Color(0xFF2196F3), // Trust Blue
-          surface: const Color(0xFFF5F7FA),
-        ),
-        textTheme: GoogleFonts.outfitTextTheme(
-          Theme.of(context).textTheme,
-        ),
-        appBarTheme: const AppBarTheme(
-          centerTitle: true,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          titleTextStyle: TextStyle(
-            color: Colors.black87,
-            fontSize: 20,
-            fontWeight: FontWeight.w600,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => UserProvider()..checkAuthStatus()),
+      ],
+      child: MaterialApp(
+        title: 'Medical AI',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF009688), // Medical Teal
+            secondary: const Color(0xFF2196F3), // Trust Blue
+            surface: const Color(0xFFF5F7FA),
+          ),
+          textTheme: GoogleFonts.outfitTextTheme(
+            Theme.of(context).textTheme,
+          ),
+          appBarTheme: const AppBarTheme(
+            centerTitle: true,
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            titleTextStyle: TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
+        home: showHome ? const AuthWrapper() : const OnboardingScreen(),
       ),
-      home: const DiagnosisScreen(),
     );
+  }
+}
+
+class AuthWrapper extends StatelessWidget {
+  const AuthWrapper({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final userProvider = Provider.of<UserProvider>(context);
+
+    if (userProvider.isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (userProvider.isAuthenticated) {
+      return const DiagnosisScreen();
+    } else {
+      return const LoginScreen();
+    }
   }
 }
