@@ -105,9 +105,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 if (error == null) {
                                   if (context.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Kayıt başarılı! Giriş yapabilirsiniz.')),
+                                      const SnackBar(content: Text('Kayıt başarılı! Yönlendiriliyorsunuz...')),
                                     );
-                                    Navigator.pop(context);
+                                    // Navigator.pop(context); // Don't pop, let AuthWrapper handle it or pop if needed
+                                    Navigator.of(context).popUntil((route) => route.isFirst);
                                   }
                                 } else {
                                   if (context.mounted) {

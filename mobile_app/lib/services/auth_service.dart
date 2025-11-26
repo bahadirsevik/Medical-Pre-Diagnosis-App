@@ -1,95 +1,91 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'api_service.dart';
 
 class AuthService {
+  final SupabaseClient _supabase = Supabase.instance.client;
   final _storage = const FlutterSecureStorage();
 
-  Future<String?> login(String email, String password) async {
-    final url = Uri.parse('${ApiService.baseUrl}/auth/token');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-      body: {
-        'username': email,
-        'password': password,
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      final token = data['access_token'];
-      await _storage.write(key: 'jwt_token', value: token);
-      return null; // Success
-    } else {
-      return 'Giriş başarısız: ${response.body}';
+  Future<AuthResponse> login(String email, String password) async {
+    try {
+      final response = await _supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      );
+      
+      if (response.session != null) {
+        await _storage.write(key: 'jwt_token', value: response.session!.accessToken);
+      }
+      
+      return response;
+    } on AuthException catch (e) {
+      if (e.message.contains('Invalid login credentials')) {
+        throw 'E-posta veya şifre hatalı.';
+      }
+      if (e.message.contains('Email not confirmed')) {
+        throw 'Lütfen e-posta adresinize gelen onay linkine tıklayın.';
+      }
+      throw 'Giriş yapılamadı: ${e.message}';
+    } catch (e) {
+      throw 'Bir hata oluştu: $e';
     }
   }
 
-  Future<String?> register(String email, String password) async {
-    final url = Uri.parse('${ApiService.baseUrl}/auth/register');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email': email,
-        'password': password,
-      }),
-    );
-
-    if (response.statusCode == 200) {
-      return null; // Success
-    } else {
-      try {
-        final data = jsonDecode(response.body);
-        return data['detail'] ?? 'Kayıt başarısız';
-      } catch (e) {
-        return 'Sunucu hatası: ${response.statusCode}';
+  Future<AuthResponse> register(String email, String password) async {
+    try {
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+      );
+      
+      if (response.session != null) {
+        await _storage.write(key: 'jwt_token', value: response.session!.accessToken);
       }
+      
+      return response;
+    } on AuthException catch (e) {
+      if (e.message.contains('User already registered')) {
+        throw 'Bu e-posta adresi zaten kayıtlı.';
+      }
+      throw 'Kayıt olunamadı: ${e.message}';
+    } catch (e) {
+      throw 'Bir hata oluştu: $e';
     }
   }
 
   Future<void> logout() async {
+    await _supabase.auth.signOut();
     await _storage.delete(key: 'jwt_token');
   }
 
-  Future<String?> getToken() async {
-    return await _storage.read(key: 'jwt_token');
-  }
-
-  Future<Map<String, dynamic>?> getUser() async {
-    final token = await getToken();
-    if (token == null) return null;
-
-    final url = Uri.parse('${ApiService.baseUrl}/users/me');
-    final response = await http.get(
-      url,
-      headers: {
-        'Authorization': 'Bearer $token',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+  Future<bool> signInWithProvider(OAuthProvider provider) async {
+    try {
+      final bool res = await _supabase.auth.signInWithOAuth(
+        provider,
+        redirectTo: 'medicalai://login-callback',
+      );
+      return res;
+    } catch (e) {
+      print("Social Login Error: $e");
+      throw 'Giriş yapılamadı: $e';
     }
-    return null;
   }
+
+  Future<bool> isLoggedIn() async {
+    final session = _supabase.auth.currentSession;
+    return session != null;
+  }
+  
+  User? get currentUser => _supabase.auth.currentUser;
 
   Future<bool> updateProfile(Map<String, dynamic> data) async {
-    final token = await getToken();
-    if (token == null) return false;
-
-    final url = Uri.parse('${ApiService.baseUrl}/users/me');
-    final response = await http.put(
-      url,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
-      body: jsonEncode(data),
-    );
-
-    return response.statusCode == 200;
+    try {
+      final response = await _supabase.auth.updateUser(
+        UserAttributes(data: data),
+      );
+      return response.user != null;
+    } catch (e) {
+      print("Profile Update Error: $e");
+      return false;
+    }
   }
 }

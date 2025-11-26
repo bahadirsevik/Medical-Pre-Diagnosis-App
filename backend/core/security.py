@@ -1,28 +1,32 @@
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt
-from passlib.context import CryptContext
 import os
+from supabase import create_client, Client
+from fastapi import HTTPException, status
 
-# Secret key for JWT encoding (should be in env, using default for dev)
-SECRET_KEY = os.getenv("SECRET_KEY", "supersecretkey123")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+if not SUPABASE_URL or not SUPABASE_KEY:
+    print("⚠️ Supabase credentials missing in environment variables!")
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+# Initialize Supabase Client
+try:
+    supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+except Exception as e:
+    print(f"Failed to initialize Supabase client: {e}")
+    supabase = None
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+def verify_supabase_token(token: str):
+    if not supabase:
+        raise HTTPException(status_code=500, detail="Supabase client not initialized")
+        
+    try:
+        # Verify the token by getting the user
+        user_response = supabase.auth.get_user(token)
+        return user_response
+    except Exception as e:
+        print(f"Token verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )

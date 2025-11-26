@@ -6,9 +6,16 @@ import 'package:mobile_app/screens/diagnosis_screen.dart';
 import 'package:mobile_app/screens/auth/login_screen.dart';
 import 'package:mobile_app/screens/onboarding_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  await Supabase.initialize(
+    url: 'https://hqkcuxwxdsybtxqgnydx.supabase.co',
+    anonKey: 'sb_publishable_efbQ-0WZV8kPB-Jb8aOHpg_S61Al-Iw',
+  );
+
   final prefs = await SharedPreferences.getInstance();
   final showHome = prefs.getBool('showHome') ?? false;
 

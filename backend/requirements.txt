@@ -1,4 +1,5 @@
 fastapi
+fastapi
 uvicorn
 pydantic
 scikit-learn
@@ -6,9 +7,11 @@ pandas
 numpy
 joblib
 openai
+supabase
 python-dotenv
 sqlalchemy
 psycopg2-binary
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+gunicorn

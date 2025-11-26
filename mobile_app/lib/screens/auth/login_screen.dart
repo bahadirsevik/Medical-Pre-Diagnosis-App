@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:mobile_app/providers/user_provider.dart';
 import 'package:mobile_app/screens/auth/register_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -84,8 +85,14 @@ class _LoginScreenState extends State<LoginScreen> {
                                 );
                                 if (error != null && context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(error)),
+                                    SnackBar(
+                                      content: Text(error),
+                                      backgroundColor: Colors.red,
+                                    ),
                                   );
+                                } else if (context.mounted) {
+                                  // Success
+                                  Navigator.of(context).popUntil((route) => route.isFirst);
                                 }
                               }
                             },
@@ -109,6 +116,40 @@ class _LoginScreenState extends State<LoginScreen> {
                     );
                   },
                 ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'veya',
+                        style: GoogleFonts.outfit(color: Colors.grey[500]),
+                      ),
+                    ),
+                    Expanded(child: Divider(color: Colors.grey[300])),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildSocialButton(
+                      icon: Icons.g_mobiledata, // Using built-in icon for demo
+                      label: 'Google',
+                      color: Colors.red,
+                      onTap: () => Provider.of<UserProvider>(context, listen: false)
+                          .socialLogin(OAuthProvider.google),
+                    ),
+                    _buildSocialButton(
+                      icon: Icons.facebook,
+                      label: 'Facebook',
+                      color: Colors.blue,
+                      onTap: () => Provider.of<UserProvider>(context, listen: false)
+                          .socialLogin(OAuthProvider.facebook),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {
@@ -128,6 +169,38 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSocialButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[300]!),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF1E293B),
+              ),
+            ),
+          ],
         ),
       ),
     );

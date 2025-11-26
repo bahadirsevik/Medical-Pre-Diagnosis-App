@@ -13,13 +13,11 @@ from core.model import classifier
 from core.llm import extract_symptoms, translate_diseases, generate_advice
 
 
-from core.security import create_access_token, get_password_hash, verify_password, ACCESS_TOKEN_EXPIRE_MINUTES
+from core.security import verify_supabase_token
 from database import engine, get_db, Base
 import models
 import schemas
 from datetime import timedelta
-from jose import JWTError, jwt
-from core.security import SECRET_KEY, ALGORITHM
 
 # Create Tables
 models.Base.metadata.create_all(bind=engine)
@@ -39,64 +37,44 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token") # Keep for Swagger UI compatibility, though not used directly
 
 # --- Auth Dependencies ---
 async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    # Verify token with Supabase
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None:
-            raise credentials_exception
-        token_data = schemas.TokenData(email=email)
-    except JWTError:
-        raise credentials_exception
-    user = db.query(models.User).filter(models.User.email == token_data.email).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
-# --- Auth Endpoints ---
-@app.post("/auth/register", response_model=schemas.User)
-def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    try:
-        db_user = db.query(models.User).filter(models.User.email == user.email).first()
-        if db_user:
-            raise HTTPException(status_code=400, detail="Email already registered")
+        supabase_user_response = verify_supabase_token(token)
+        supabase_user = supabase_user_response.user
         
-        hashed_password = get_password_hash(user.password)
-        new_user = models.User(email=user.email, hashed_password=hashed_password)
-        db.add(new_user)
-        db.commit()
-        db.refresh(new_user)
-        return new_user
-    except ValueError as e:
-        print(f"❌ Password Hashing Error: {e}")
-        raise HTTPException(status_code=400, detail=f"Invalid password: {str(e)}")
+        if not supabase_user or not supabase_user.email:
+            raise HTTPException(status_code=401, detail="Invalid token or missing email")
+            
+        email = supabase_user.email
+        
+        # Check if user exists in our DB (synced)
+        user = db.query(models.User).filter(models.User.email == email).first()
+        
+        if not user:
+            # Auto-create user in our DB if they exist in Supabase but not here
+            print(f"🆕 Creating local user for {email}")
+            # We use a dummy password since Supabase handles auth
+            new_user = models.User(email=email, hashed_password="supabase_managed")
+            db.add(new_user)
+            db.commit()
+            db.refresh(new_user)
+            user = new_user
+            
+        return user
+        
     except Exception as e:
-        print(f"❌ Registration Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error during registration")
-
-@app.post("/auth/token", response_model=schemas.Token)
-def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.email == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+        print(f"Auth Error: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
+            detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.email}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
 
+# --- User Endpoints ---
 @app.get("/users/me", response_model=schemas.User)
 async def read_users_me(current_user: models.User = Depends(get_current_user)):
     return current_user

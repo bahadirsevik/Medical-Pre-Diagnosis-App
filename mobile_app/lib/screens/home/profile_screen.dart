@@ -19,11 +19,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    final user = Provider.of<UserProvider>(context, listen: false).user;
-    if (user != null) {
-      if (user['age'] != null) _ageController.text = user['age'].toString();
-      if (user['gender'] != null) _selectedGender = user['gender'];
-      if (user['chronic_conditions'] != null) _conditionsController.text = user['chronic_conditions'];
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final userProvider = Provider.of<UserProvider>(context, listen: false);
+    final profile = await userProvider.fetchProfile();
+    
+    if (profile != null && mounted) {
+      setState(() {
+        if (profile['age'] != null) _ageController.text = profile['age'].toString();
+        if (profile['gender'] != null) _selectedGender = profile['gender'];
+        if (profile['chronic_conditions'] != null) _conditionsController.text = profile['chronic_conditions'];
+      });
     }
   }
 
