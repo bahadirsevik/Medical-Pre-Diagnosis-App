@@ -5,9 +5,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ApiService {
-  // Cloudflare Tunnel URL - Works on ALL devices (iOS, Android, Mac, Windows)
+  // Production Render URL
   static String get baseUrl {
-    return 'https://restoration-entrepreneurs-sky-monster.trycloudflare.com';
+    return 'https://medical-pre-diagnosis-app.onrender.com';
   } 
 
   Future<Map<String, dynamic>> diagnose(String text) async {
